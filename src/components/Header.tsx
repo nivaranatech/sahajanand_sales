@@ -33,7 +33,7 @@ export default function Header() {
         <div className="flex items-center justify-between h-16">
           <div className="flex items-center space-x-4">
             <div className={`text-2xl font-bold bg-gradient-to-r from-blue-600 to-emerald-600 bg-clip-text text-transparent`}>
-              ProductFlow
+              Sahajanand Sales
             </div>
           </div>
 
