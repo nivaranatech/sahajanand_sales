@@ -215,7 +215,7 @@ export default function Search() {
                       <div className="flex justify-between">
                         <span className={state.theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}>Price:</span>
                         <span className={`font-bold ${state.theme === 'dark' ? 'text-emerald-400' : 'text-emerald-600'}`}>
-                          ${selectedProduct.price}
+                          ₹{selectedProduct.price}
                         </span>
                       </div>
                       <div className="flex justify-between">

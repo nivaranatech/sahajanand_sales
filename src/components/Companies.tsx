@@ -84,21 +84,21 @@ export default function Companies() {
               <div>
                 <p style="font-weight: 500;">${product.name}</p>
                 <p style="font-size: 12px; color: #666;">
-                  ${item.quantity} × $${product.price.toFixed(2)}
+                  ${item.quantity} × ₹${product.price.toFixed(2)}
                 </p>
               </div>
-              <p>$${calculateItemTotal(item).toFixed(2)}</p>
+              <p>₹${calculateItemTotal(item).toFixed(2)}</p>
             </div>
             `;
           }).join('')}
         </div>
         
         <div style="text-align: right; margin-top: 20px;">
-          <p>Subtotal: $${bill.subtotal.toFixed(2)}</p>
+          <p>Subtotal: ₹${bill.subtotal.toFixed(2)}</p>
           ${bill.totalDiscount > 0 ? `<p>Discount: -$${bill.totalDiscount.toFixed(2)}</p>` : ''}
-          <p>GST: $${bill.gst.toFixed(2)}</p>
+          <p>GST: ₹${bill.gst.toFixed(2)}</p>
           <p style="font-size: 18px; font-weight: bold; margin-top: 10px;">
-            Total: $${bill.total.toFixed(2)}
+            Total: ₹${bill.total.toFixed(2)}
           </p>
         </div>
         
@@ -198,7 +198,7 @@ export default function Companies() {
                       state.theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
                     }`}>
                       <p>{company.productCount} products</p>
-                      <p>${company.totalSales.toFixed(2)} in sales</p>
+                      <p>₹{company.totalSales.toFixed(2)} in sales</p>
                     </div>
                   </div>
                 </div>
@@ -253,7 +253,7 @@ export default function Companies() {
                           <p className={`text-sm ${
                             state.theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
                           }`}>
-                            ${normalizedProduct.price.toFixed(2)} • {normalizedProduct.quantity} in stock
+                            ₹{normalizedProduct.price.toFixed(2)} • {normalizedProduct.quantity} in stock
                           </p>
                         </div>
                       </div>

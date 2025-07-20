@@ -112,23 +112,23 @@ export default function Cart() {
               <div>
                 <p style="font-weight: 500;">${item.product.name}</p>
                 <p style="font-size: 12px; color: #666;">
-                  ${item.quantity} × $${item.product.price.toFixed(2)}
+                  ${item.quantity} × ₹${item.product.price.toFixed(2)}
                   ${item.discount > 0 ? 
                     `(Discount: ${item.discountType === 'percentage' ? 
-                      `${item.discount}%` : `$${item.discount}`})` : ''}
+                      `${item.discount}%` : `₹${item.discount}`})` : ''}
                 </p>
               </div>
-              <p>$${calculateItemTotal(item).toFixed(2)}</p>
+              <p>₹${calculateItemTotal(item).toFixed(2)}</p>
             </div>
           `).join('')}
         </div>
         
         <div style="text-align: right; margin-top: 20px;">
-          <p>Subtotal: $${bill.subtotal.toFixed(2)}</p>
-          ${bill.totalDiscount > 0 ? `<p>Discount: -$${bill.totalDiscount.toFixed(2)}</p>` : ''}
-          <p>GST: $${bill.gst.toFixed(2)}</p>
+          <p>Subtotal: ₹${bill.subtotal.toFixed(2)}</p>
+          ${bill.totalDiscount > 0 ? `<p>Discount: -₹${bill.totalDiscount.toFixed(2)}</p>` : ''}
+          <p>GST: ₹${bill.gst.toFixed(2)}</p>
           <p style="font-size: 18px; font-weight: bold; margin-top: 10px;">
-            Total: $${bill.total.toFixed(2)}
+            Total: ₹${bill.total.toFixed(2)}
           </p>
         </div>
         
@@ -245,7 +245,7 @@ export default function Cart() {
                   <p className={`text-sm ${
                     state.theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
                   }`}>
-                    ${item.product.price} each
+                    ₹{item.product.price} each
                   </p>
                 </div>
                 <div className="flex space-x-2">
@@ -302,17 +302,17 @@ export default function Cart() {
                     <p className={`text-sm line-through ${
                       state.theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
                     }`}>
-                      ${(item.product.price * item.quantity).toFixed(2)}
+                      ₹{(item.product.price * item.quantity).toFixed(2)}
                     </p>
                   )}
                   <p className={`font-bold text-lg ${
                     state.theme === 'dark' ? 'text-emerald-400' : 'text-emerald-600'
                   }`}>
-                    ${calculateItemTotal(item).toFixed(2)}
+                    ₹{calculateItemTotal(item).toFixed(2)}
                   </p>
                   {item.discount > 0 && (
                     <p className="text-sm text-red-500">
-                      -{item.discountType === 'percentage' ? `${item.discount}%` : `$${item.discount}`} discount
+                      -{item.discountType === 'percentage' ? `${item.discount}%` : `₹${item.discount}`} discount
                     </p>
                   )}
                 </div>
@@ -338,7 +338,7 @@ export default function Cart() {
                 Subtotal:
               </span>
               <span className={state.theme === 'dark' ? 'text-white' : 'text-gray-900'}>
-                ${totals.subtotal.toFixed(2)}
+                ₹{totals.subtotal.toFixed(2)}
               </span>
             </div>
             <div className="flex justify-between">
@@ -346,7 +346,7 @@ export default function Cart() {
                 Discount:
               </span>
               <span className="text-red-500">
-                -${totals.totalDiscount.toFixed(2)}
+                -₹{totals.totalDiscount.toFixed(2)}
               </span>
             </div>
             <div className="flex justify-between">
@@ -354,7 +354,7 @@ export default function Cart() {
                 GST:
               </span>
               <span className={state.theme === 'dark' ? 'text-white' : 'text-gray-900'}>
-                ${totals.gst.toFixed(2)}
+                ₹{totals.gst.toFixed(2)}
               </span>
             </div>
             <hr className={state.theme === 'dark' ? 'border-gray-700' : 'border-gray-200'} />
@@ -363,7 +363,7 @@ export default function Cart() {
                 Total:
               </span>
               <span className={state.theme === 'dark' ? 'text-emerald-400' : 'text-emerald-600'}>
-                ${totals.total.toFixed(2)}
+                ₹{totals.total.toFixed(2)}
               </span>
             </div>
           </div>
@@ -384,7 +384,7 @@ export default function Cart() {
               onClick={() => setShowBillPreview(true)}
               className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 rounded-lg font-medium transition-colors flex items-center justify-center space-x-2"
             >
-              <Receipt className="w-4 h-4" />
+              {/* <Receipt className="w-4 h-4" /> */}
               <span>Generate Bill</span>
             </button>
           </div>
@@ -439,7 +439,7 @@ export default function Cart() {
                     }`}
                   >
                     <option value="percentage">Percentage (%)</option>
-                    <option value="amount">Fixed Amount ($)</option>
+                    <option value="amount">Fixed Amount (₹)</option>
                   </select>
                 </div>
 
@@ -531,11 +531,11 @@ export default function Cart() {
                         <p className={`text-xs ${
                           state.theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
                         }`}>
-                          ${item.product.price} each
+                          ₹{item.product.price} each
                         </p>
                       </div>
                       <p className={state.theme === 'dark' ? 'text-white' : 'text-gray-900'}>
-                        ${calculateItemTotal(item).toFixed(2)}
+                        ₹{calculateItemTotal(item).toFixed(2)}
                       </p>
                     </div>
                   ))}
@@ -546,21 +546,21 @@ export default function Cart() {
                 <div className="space-y-1 text-sm">
                   <div className="flex justify-between">
                     <span>Subtotal:</span>
-                    <span>${totals.subtotal.toFixed(2)}</span>
+                    <span>₹{totals.subtotal.toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span>Discount:</span>
-                    <span>-${totals.totalDiscount.toFixed(2)}</span>
+                    <span>-₹{totals.totalDiscount.toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span>GST:</span>
-                    <span>${totals.gst.toFixed(2)}</span>
+                    <span>₹{totals.gst.toFixed(2)}</span>
                   </div>
                   <div className={`flex justify-between font-bold text-lg ${
                     state.theme === 'dark' ? 'text-emerald-400' : 'text-emerald-600'
                   }`}>
                     <span>Total:</span>
-                    <span>${totals.total.toFixed(2)}</span>
+                    <span>₹{totals.total.toFixed(2)}</span>
                   </div>
                 </div>
 

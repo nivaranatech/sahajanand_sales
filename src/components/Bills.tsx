@@ -50,20 +50,20 @@ export default function Bills() {
               <div>
                 <p style="font-weight: 500;">${item.product.name}</p>
                 <p style="font-size: 12px; color: #666;">
-                  ${item.quantity} × $${item.product.price.toFixed(2)}
+                  ${item.quantity} × ₹${item.product.price.toFixed(2)}
                 </p>
               </div>
-              <p>$${(item.product.price * item.quantity).toFixed(2)}</p>
+              <p>₹${(item.product.price * item.quantity).toFixed(2)}</p>
             </div>
           `).join('')}
         </div>
         
         <div style="text-align: right; margin-top: 20px;">
-          <p>Subtotal: $${bill.subtotal.toFixed(2)}</p>
+          <p>Subtotal: ₹${bill.subtotal.toFixed(2)}</p>
           ${bill.totalDiscount > 0 ? `<p>Discount: -$${bill.totalDiscount.toFixed(2)}</p>` : ''}
-          <p>GST: $${bill.gst.toFixed(2)}</p>
+          <p>GST: ₹${bill.gst.toFixed(2)}</p>
           <p style="font-size: 18px; font-weight: bold; margin-top: 10px;">
-            Total: $${bill.total.toFixed(2)}
+            Total: ₹${bill.total.toFixed(2)}
           </p>
         </div>
         
@@ -227,7 +227,7 @@ export default function Bills() {
                     <td className={`py-3 px-4 text-right font-semibold ${
                       state.theme === 'dark' ? 'text-emerald-400' : 'text-emerald-600'
                     }`}>
-                      ${bill.total.toFixed(2)}
+                      ₹{bill.total.toFixed(2)}
                     </td>
                     <td className="py-3 px-4 text-right">
                       <button

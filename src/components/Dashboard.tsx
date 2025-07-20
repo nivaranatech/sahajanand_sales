@@ -168,7 +168,7 @@ export default function Dashboard() {
                       <p className={`text-sm ${
                         state.theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
                       }`}>
-                        ${product.price}
+                        ₹{product.price}
                       </p>
                     </div>
                   </div>
@@ -251,7 +251,7 @@ export default function Dashboard() {
                     <td className={`py-2 px-4 font-semibold ${
                       state.theme === 'dark' ? 'text-emerald-400' : 'text-emerald-600'
                     }`}>
-                      ${bill.total.toFixed(2)}
+                      ₹{bill.total.toFixed(2)}
                     </td>
                   </tr>
                 ))}

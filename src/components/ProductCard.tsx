@@ -77,7 +77,7 @@ export default function ProductCard({ product, onAddToCart, onViewDetails }: Pro
             <span className={`text-2xl font-bold ${
               state.theme === 'dark' ? 'text-emerald-400' : 'text-emerald-600'
             }`}>
-              ${product.price}
+              ₹{product.price}
             </span>
             {product.gst && product.gst > 0 && (
               <span className={`text-sm ml-2 ${
