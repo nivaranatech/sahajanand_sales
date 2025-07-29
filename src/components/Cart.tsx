@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { ShoppingCart, Plus, Minus, Trash2, Edit, Receipt } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { CartItem, Bill } from '../types';
-import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
 
 export default function Cart() {
@@ -86,74 +85,73 @@ export default function Cart() {
     return { subtotal, totalDiscount, gst, total };
   };
 
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
+  const [pdfError, setPdfError] = useState<string | null>(null);
+
   const generateBillPDF = async (bill: Bill) => {
-    const element = document.createElement('div');
-    element.style.position = 'absolute';
-    element.style.left = '-9999px';
-    element.style.width = '600px';
-    element.style.padding = '20px';
-    element.style.backgroundColor = 'white';
-    element.style.color = 'black';
-    
-    element.innerHTML = `
-      <div id="bill-content">
-        <div style="text-align: center; margin-bottom: 20px;">
-          <h2 style="font-size: 24px; font-weight: bold;">ProductFlow</h2>
-          <p style="color: #666;">Bill Receipt</p>
-          <p style="font-size: 12px; color: #999;">
-            ${new Date(bill.date).toLocaleDateString()} • ${bill.id}
-          </p>
-          ${bill.customerName ? `<p style="margin-top: 10px;">Customer: ${bill.customerName}</p>` : ''}
-        </div>
-        
-        <div style="border-top: 1px solid #eee; border-bottom: 1px solid #eee; padding: 10px 0; margin: 20px 0;">
-          ${bill.items.map((item, index) => `
-            <div key=${index} style="display: flex; justify-content: space-between; padding: 8px 0;">
-              <div>
-                <p style="font-weight: 500;">${item.product.name}</p>
-                <p style="font-size: 12px; color: #666;">
-                  ${item.quantity} × ₹${item.product.price.toFixed(2)}
-                  ${item.discount > 0 ? 
-                    `(Discount: ${item.discountType === 'percentage' ? 
-                      `${item.discount}%` : `₹${item.discount}`})` : ''}
-                </p>
-              </div>
-              <p>₹${calculateItemTotal(item).toFixed(2)}</p>
-            </div>
-          `).join('')}
-        </div>
-        
-        <div style="text-align: right; margin-top: 20px;">
-          <p>Subtotal: ₹${bill.subtotal.toFixed(2)}</p>
-          ${bill.totalDiscount > 0 ? `<p>Discount: -₹${bill.totalDiscount.toFixed(2)}</p>` : ''}
-          <p>GST: ₹${bill.gst.toFixed(2)}</p>
-          <p style="font-size: 18px; font-weight: bold; margin-top: 10px;">
-            Total: ₹${bill.total.toFixed(2)}
-          </p>
-        </div>
-        
-        <div style="margin-top: 40px; text-align: center; font-size: 12px; color: #999;">
-          <p>Thank you for your business!</p>
-          <p style="margin-top: 5px;">Generated on ${new Date().toLocaleString()}</p>
-        </div>
-      </div>
-    `;
-    
-    document.body.appendChild(element);
+    setIsGeneratingPDF(true);
+    setPdfError(null);
     
     try {
-      const canvas = await html2canvas(element.querySelector('#bill-content') as HTMLElement);
-      const pdf = new jsPDF('p', 'mm', 'a4');
-      const imgData = canvas.toDataURL('image/png');
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+      // Check for pop-up blockers
+      const testWindow = window.open('', '_blank');
+      if (!testWindow) {
+        setPdfError('Please allow pop-ups to download bills');
+        return;
+      }
+      testWindow.close();
+
+      // Create PDF
+      const pdf = new jsPDF();
       
-      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-      pdf.save(`bill_${bill.id}.pdf`);
+      // Add header
+      pdf.setFontSize(18);
+      pdf.text('ProductFlow', 105, 20, { align: 'center' });
+      
+      // Bill info
+      pdf.setFontSize(12);
+      pdf.text(`Bill Date: ${new Date(bill.date).toLocaleDateString()}`, 14, 30);
+      pdf.text(`Bill ID: ${bill.id}`, 14, 40);
+      if (bill.customerName) {
+        pdf.text(`Customer: ${bill.customerName}`, 14, 50);
+      }
+      
+      // Items table
+      pdf.setFontSize(14);
+      pdf.text('Items:', 14, 60);
+      
+      let y = 70;
+      bill.items.forEach(item => {
+        pdf.setFontSize(12);
+        pdf.text(`${item.product.name} x${item.quantity}`, 14, y);
+        pdf.text(`₹${calculateItemTotal(item).toFixed(2)}`, 180, y, { align: 'right' });
+        y += 10;
+      });
+      
+      // Totals
+      y += 10;
+      pdf.text(`Subtotal: ₹${bill.subtotal.toFixed(2)}`, 14, y);
+      pdf.text(`-₹${bill.totalDiscount.toFixed(2)}`, 180, y, { align: 'right' });
+      y += 10;
+      pdf.text(`GST: ₹${bill.gst.toFixed(2)}`, 14, y);
+      y += 10;
+      pdf.setFontSize(16);
+      pdf.text(`Total: ₹${bill.total.toFixed(2)}`, 14, y);
+      
+      // Footer
+      y += 20;
+      pdf.setFontSize(10);
+      pdf.text('Thank you for your business!', 105, y, { align: 'center' });
+      
+      // Save with descriptive filename
+      const filename = `ProductFlow_Bill_${bill.id}_${new Date(bill.date).toISOString().split('T')[0]}.pdf`;
+      pdf.save(filename);
+      
     } catch (error) {
-      console.error('Error generating PDF:', error);
+      console.error('PDF generation error:', error);
+      setPdfError('Failed to generate PDF. Please try again or check console for details.');
     } finally {
-      document.body.removeChild(element);
+      setIsGeneratingPDF(false);
     }
   };
 
@@ -162,11 +160,14 @@ export default function Cart() {
     const bill: Bill = {
       id: `BILL-${Date.now()}`,
       customerName: customerName.trim() || undefined,
-      date: new Date().toISOString(),
+      date: new Date(),
       items: [...state.cart],
       subtotal: totals.subtotal,
       totalDiscount: totals.totalDiscount,
       gst: totals.gst,
+      gstAmount: totals.gst,
+      finalAmount: totals.total,
+      billNumber: `BILL-${Date.now()}`,
       total: totals.total
     };
     
@@ -574,10 +575,28 @@ export default function Cart() {
               <div className="flex space-x-3">
                 <button
                   onClick={generateBill}
-                  className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+                  disabled={isGeneratingPDF}
+                  className={`flex-1 ${
+                    isGeneratingPDF
+                      ? 'bg-emerald-400 cursor-not-allowed'
+                      : 'bg-emerald-600 hover:bg-emerald-700'
+                  } text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center justify-center`}
                 >
-                  Confirm & Download Bill
+                  {isGeneratingPDF ? (
+                    <>
+                      <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Generating...
+                    </>
+                  ) : (
+                    'Confirm & Download Bill'
+                  )}
                 </button>
+                {pdfError && (
+                  <p className="text-red-500 text-sm mt-2">{pdfError}</p>
+                )}
                 <button
                   onClick={() => setShowBillPreview(false)}
                   className={`px-6 py-2 rounded-lg font-medium transition-colors ${

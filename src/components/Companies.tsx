@@ -1,334 +1,242 @@
 import React, { useState } from 'react';
-import { Building2, FileText, Package, Download } from 'lucide-react';
+import * as pdfjsLib from "pdfjs-dist";
+import "pdfjs-dist/build/pdf.worker.entry";
 import { useApp } from '../context/AppContext';
-import { Company, Product, Bill } from '../types';
-import html2canvas from 'html2canvas';
-import { jsPDF } from 'jspdf';
 
-// Helper function to normalize product data from different sources
-const normalizeProduct = (product: any): Product => ({
-  id: product.ProductID || product.id,
-  name: product.ProductName || product.name,
-  companyName: product.Company || product.companyName,
-  shopName: product.ShopName || product.shopName,
-  price: product.OriginalPrice || product.price,
-  quantity: product.Quantity || product.quantity,
-  discount: product.Discount || product.discount,
-  category: product.Category || product.category
-});
+// Tell PDF.js to use the worker that Vite will bundle internally
+pdfjsLib.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.js";
 
-export default function Companies() {
+export interface Company {
+  name: string;
+  productCount: number;
+  totalSales: number;
+}
+
+interface SearchResult {
+  ecode: string;
+  dcat: string;
+  sap: string;
+  price: string;
+  moq: string;
+}
+
+const Companies: React.FC = () => {
   const { state } = useApp();
-  const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
-  const [searchTerm, setSearchTerm] = useState('');
+  
+  // PDF search states
+  const [pdfText, setPdfText] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [results, setResults] = useState<SearchResult[]>([]);
+  const [isPdfLoaded, setIsPdfLoaded] = useState(false);
 
-  // Calculate item total for bills
-  const calculateItemTotal = (item: { product: Product; quantity: number; discount: number; discountType: string }) => {
-    const product = normalizeProduct(item.product);
-    const basePrice = product.price * item.quantity;
-    const discount = item.discountType === 'percentage' 
-      ? (basePrice * item.discount) / 100 
-      : item.discount;
-    return basePrice - discount;
-  };
-
-  // Get unique companies with stats using normalized data
-  const companies = Array.from(new Set(
-    state.products.map(product => normalizeProduct(product).companyName)
-  )).map(companyName => {
-    const companyProducts = state.products.filter(p => 
-      normalizeProduct(p).companyName === companyName
-    );
-    const companyBills = state.bills.flatMap(bill => 
-      bill.items.filter(item => 
-        normalizeProduct(item.product).companyName === companyName
-      )
-    );
-    
-    return {
-      name: companyName,
-      productCount: companyProducts.length,
-      totalSales: companyBills.reduce((sum, item) => sum + calculateItemTotal(item), 0)
-    };
-  });
-
-  const filteredCompanies = companies.filter(company =>
-    company.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  const generateBillPDF = async (bill: Bill) => {
-    const element = document.createElement('div');
-    element.style.position = 'absolute';
-    element.style.left = '-9999px';
-    element.style.width = '600px';
-    element.style.padding = '20px';
-    element.style.backgroundColor = 'white';
-    element.style.color = 'black';
-    
-    element.innerHTML = `
-      <div id="bill-content">
-        <div style="text-align: center; margin-bottom: 20px;">
-          <h2 style="font-size: 24px; font-weight: bold;">ProductFlow</h2>
-          <p style="color: #666;">Bill Receipt</p>
-          <p style="font-size: 12px; color: #999;">
-            ${new Date(bill.date).toLocaleDateString()} • ${bill.id}
-          </p>
-          ${bill.customerName ? `<p style="margin-top: 10px;">Customer: ${bill.customerName}</p>` : ''}
-        </div>
-        
-        <div style="border-top: 1px solid #eee; border-bottom: 1px solid #eee; padding: 10px 0; margin: 20px 0;">
-          ${bill.items.map((item, index) => {
-            const product = normalizeProduct(item.product);
-            return `
-            <div key=${index} style="display: flex; justify-content: space-between; padding: 8px 0;">
-              <div>
-                <p style="font-weight: 500;">${product.name}</p>
-                <p style="font-size: 12px; color: #666;">
-                  ${item.quantity} × ₹${product.price.toFixed(2)}
-                </p>
-              </div>
-              <p>₹${calculateItemTotal(item).toFixed(2)}</p>
-            </div>
-            `;
-          }).join('')}
-        </div>
-        
-        <div style="text-align: right; margin-top: 20px;">
-          <p>Subtotal: ₹${bill.subtotal.toFixed(2)}</p>
-          ${bill.totalDiscount > 0 ? `<p>Discount: -$${bill.totalDiscount.toFixed(2)}</p>` : ''}
-          <p>GST: ₹${bill.gst.toFixed(2)}</p>
-          <p style="font-size: 18px; font-weight: bold; margin-top: 10px;">
-            Total: ₹${bill.total.toFixed(2)}
-          </p>
-        </div>
-        
-        <div style="margin-top: 40px; text-align: center; font-size: 12px; color: #999;">
-          <p>Thank you for your business!</p>
-          <p style="margin-top: 5px;">Generated on ${new Date().toLocaleString()}</p>
-        </div>
-      </div>
-    `;
-    
-    document.body.appendChild(element);
-    
-    try {
-      const canvas = await html2canvas(element.querySelector('#bill-content') as HTMLElement);
-      const pdf = new jsPDF('p', 'mm', 'a4');
-      const imgData = canvas.toDataURL('image/png');
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-      
-      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-      pdf.save(`bill_${bill.id}.pdf`);
-    } catch (error) {
-      console.error('Error generating PDF:', error);
-    } finally {
-      document.body.removeChild(element);
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || file.type !== "application/pdf") {
+      alert("Please upload a valid PDF file.");
+      return;
     }
+
+    const reader = new FileReader();
+
+    reader.onload = async () => {
+      try {
+        setIsPdfLoaded(false);
+
+        const typedArray = new Uint8Array(reader.result as ArrayBuffer);
+        const pdf = await pdfjsLib.getDocument(typedArray).promise;
+
+        let allText = "";
+
+        for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+          const page = await pdf.getPage(pageNum);
+          const content = await page.getTextContent();
+
+          let pageText = content.items
+            .map((item: any) => item.str.trim())
+            .filter((str: string) => str.length > 0)
+            .join(" ");
+
+          allText += pageText + "\n";
+        }
+
+        setPdfText(allText);
+        setResults([]);
+        setIsPdfLoaded(true);
+      } catch (err) {
+        console.error("PDF Parse Error:", err);
+        alert("Failed to parse PDF.");
+        setIsPdfLoaded(false);
+      }
+    };
+
+    reader.readAsArrayBuffer(file);
   };
 
-  const companyBills = selectedCompany
-    ? state.bills.filter(bill => 
-        bill.items.some(item => 
-          normalizeProduct(item.product).companyName === selectedCompany.name
-        ))
-    : [];
+  const handleSearch = () => {
+    if (!searchTerm.trim()) {
+      alert("Enter a search keyword");
+      return;
+    }
+
+    const pattern = new RegExp(
+      `(${searchTerm.trim()})\\s+(\\S+)\\s+(\\S+)\\s+(\\S+)\\s+(\\S+)`,
+      "i"
+    );
+
+    const matches: SearchResult[] = [];
+    const lines = pdfText.split("\n");
+
+    for (const line of lines) {
+      const match = line.match(pattern);
+      if (match) {
+        matches.push({
+          ecode: match[1],
+          dcat: match[2],
+          sap: match[3],
+          price: match[4],
+          moq: match[5],
+        });
+      }
+    }
+
+    setResults(matches);
+  };
+
+  const isDark = state.theme === 'dark';
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className={`text-3xl font-bold ${
-          state.theme === 'dark' ? 'text-white' : 'text-gray-900'
-        }`}>
-          Companies
-        </h1>
-        <p className={`mt-2 ${
-          state.theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
-        }`}>
-          {selectedCompany 
-            ? `Products and bills for ${selectedCompany.name}` 
-            : 'View all companies and their products'}
-        </p>
+    <div className={`p-6 rounded-lg shadow-md ${
+      isDark 
+        ? 'bg-gray-800 text-white' 
+        : 'bg-white text-gray-900'
+    }`}>
+      <h2 className="text-2xl font-bold mb-6">🔍 Companies PDF Search</h2>
+      
+      {/* File Upload Section */}
+      <div className="mb-6">
+        <label className="block text-sm font-medium mb-2">
+          Upload Company PDF Document
+        </label>
+        <input 
+          type="file" 
+          accept="application/pdf" 
+          onChange={handleFileUpload}
+          className={`block w-full text-sm border rounded-lg cursor-pointer focus:outline-none ${
+            isDark 
+              ? 'bg-gray-700 border-gray-600 text-gray-400 file:bg-gray-600 file:text-white' 
+              : 'bg-gray-50 border-gray-300 text-gray-900 file:bg-blue-50 file:text-blue-700'
+          } file:border-0 file:py-2 file:px-4 file:rounded-l-lg file:cursor-pointer`}
+        />
       </div>
 
-      {!selectedCompany ? (
-        <>
-          <div className={`relative rounded-xl border ${
-            state.theme === 'dark'
-              ? 'bg-gray-800 border-gray-700'
-              : 'bg-white border-gray-200'
-          }`}>
-            <input
-              type="text"
-              placeholder="Search companies..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className={`w-full px-4 py-3 rounded-xl border-0 ${
-                state.theme === 'dark'
-                  ? 'bg-gray-800 text-white placeholder-gray-400'
-                  : 'bg-white text-gray-900 placeholder-gray-500'
-              }`}
-            />
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredCompanies.map((company, index) => (
-              <div 
-                key={index}
-                onClick={() => setSelectedCompany(company)}
-                className={`p-6 rounded-xl border transition-all hover:scale-105 hover:shadow-lg cursor-pointer ${
-                  state.theme === 'dark'
-                    ? 'bg-gray-800 border-gray-700 hover:shadow-gray-900/20'
-                    : 'bg-white border-gray-200 hover:shadow-gray-200/50'
-                }`}
-              >
-                <div className="flex items-center space-x-4">
-                  <div className={`p-3 rounded-lg ${
-                    state.theme === 'dark' ? 'bg-gray-700' : 'bg-gray-100'
-                  }`}>
-                    <Building2 className="w-6 h-6 text-blue-500" />
-                  </div>
-                  <div>
-                    <h3 className={`font-semibold text-lg ${
-                      state.theme === 'dark' ? 'text-white' : 'text-gray-900'
-                    }`}>
-                      {company.name}
-                    </h3>
-                    <div className={`text-sm ${
-                      state.theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
-                    }`}>
-                      <p>{company.productCount} products</p>
-                      <p>₹{company.totalSales.toFixed(2)} in sales</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </>
-      ) : (
-        <div className="space-y-6">
-          <button
-            onClick={() => setSelectedCompany(null)}
-            className={`flex items-center space-x-2 px-4 py-2 rounded-lg ${
-              state.theme === 'dark'
-                ? 'bg-gray-700 hover:bg-gray-600 text-white'
-                : 'bg-gray-100 hover:bg-gray-200 text-gray-900'
+      {/* Search Section */}
+      <div className="mb-6">
+        <div className="flex gap-2">
+          <input
+            type="text"
+            placeholder="Enter search keyword (e.g., company name or product code)"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            disabled={!isPdfLoaded}
+            className={`flex-1 px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+              isDark 
+                ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' 
+                : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
+            } ${!isPdfLoaded ? 'opacity-50 cursor-not-allowed' : ''}`}
+          />
+          <button 
+            onClick={handleSearch} 
+            disabled={!isPdfLoaded}
+            className={`px-4 py-2 rounded-md font-medium transition-colors ${
+              !isPdfLoaded 
+                ? 'bg-gray-400 cursor-not-allowed' 
+                : isDark
+                  ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                  : 'bg-blue-500 hover:bg-blue-600 text-white'
             }`}
           >
-            ← Back to companies
+            Search
           </button>
-
-          <div className={`p-6 rounded-xl border ${
-            state.theme === 'dark'
-              ? 'bg-gray-800 border-gray-700'
-              : 'bg-white border-gray-200'
-          }`}>
-            <h2 className={`text-xl font-semibold mb-4 ${
-              state.theme === 'dark' ? 'text-white' : 'text-gray-900'
-            }`}>
-              {selectedCompany.name} Products
-            </h2>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {state.products
-                .filter(product => normalizeProduct(product).companyName === selectedCompany.name)
-                .map((product, index) => {
-                  const normalizedProduct = normalizeProduct(product);
-                  return (
-                    <div 
-                      key={index}
-                      className={`p-4 rounded-lg ${
-                        state.theme === 'dark' ? 'bg-gray-700' : 'bg-gray-50'
-                      }`}
-                    >
-                      <div className="flex items-center space-x-3">
-                        <Package className="w-5 h-5 text-purple-500" />
-                        <div>
-                          <p className={`font-medium ${
-                            state.theme === 'dark' ? 'text-white' : 'text-gray-900'
-                          }`}>
-                            {normalizedProduct.name}
-                          </p>
-                          <p className={`text-sm ${
-                            state.theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
-                          }`}>
-                            ₹{normalizedProduct.price.toFixed(2)} • {normalizedProduct.quantity} in stock
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-            </div>
-          </div>
-
-          <div className={`p-6 rounded-xl border ${
-            state.theme === 'dark'
-              ? 'bg-gray-800 border-gray-700'
-              : 'bg-white border-gray-200'
-          }`}>
-            <h2 className={`text-xl font-semibold mb-4 ${
-              state.theme === 'dark' ? 'text-white' : 'text-gray-900'
-            }`}>
-              Sales Bills
-            </h2>
-            
-            {companyBills.length > 0 ? (
-              <div className="space-y-4">
-                {companyBills.map((bill) => (
-                  <div 
-                    key={bill.id}
-                    className={`p-4 rounded-lg ${
-                      state.theme === 'dark' ? 'bg-gray-700' : 'bg-gray-50'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className={`font-medium ${
-                          state.theme === 'dark' ? 'text-white' : 'text-gray-900'
-                        }`}>
-                          Bill #{bill.id.slice(-6)}
-                        </p>
-                        <p className={`text-sm ${
-                          state.theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
-                        }`}>
-                          {new Date(bill.date).toLocaleDateString()} • {bill.items.length} items
-                        </p>
-                      </div>
-                      <div className="flex items-center space-x-4">
-                        <p className={`font-bold ${
-                          state.theme === 'dark' ? 'text-emerald-400' : 'text-emerald-600'
-                        }`}>
-                          ${bill.total.toFixed(2)}
-                        </p>
-                        <button
-                          onClick={() => generateBillPDF(bill)}
-                          className={`p-2 rounded-lg ${
-                            state.theme === 'dark'
-                              ? 'text-blue-400 hover:bg-gray-700'
-                              : 'text-blue-600 hover:bg-gray-100'
-                          }`}
-                          title="Download PDF"
-                        >
-                          <Download className="w-5 h-5" />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className={`text-center py-8 ${
-                state.theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
-              }`}>
-                <FileText className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                <p>No bills found for {selectedCompany.name}</p>
-              </div>
-            )}
-          </div>
         </div>
-      )}
+        {!isPdfLoaded && (
+          <p className="text-sm text-gray-500 mt-1">
+            Please upload a PDF file first
+          </p>
+        )}
+      </div>
+
+      {/* Results Section */}
+      <div className={`rounded-lg p-4 ${
+        isDark ? 'bg-gray-700' : 'bg-gray-50'
+      }`}>
+        <h3 className="text-lg font-semibold mb-4">Search Results:</h3>
+        {results.length === 0 ? (
+          <p className={`text-center py-8 ${
+            isDark ? 'text-gray-400' : 'text-gray-600'
+          }`}>
+            {isPdfLoaded ? 'No results found. Try a different search term.' : 'Upload a PDF and search to see results here.'}
+          </p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className={`min-w-full border rounded-lg ${
+              isDark ? 'border-gray-600' : 'border-gray-200'
+            }`}>
+              <thead className={isDark ? 'bg-gray-600' : 'bg-gray-100'}>
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">
+                    e-Code
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">
+                    DCAT SAP
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">
+                    Stock
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">
+                    INR Price / Piece
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">
+                    Min. Order Qty
+                  </th>
+                </tr>
+              </thead>
+              <tbody className={`divide-y ${
+                isDark ? 'divide-gray-600' : 'divide-gray-200'
+              }`}>
+                {results.map((row, idx) => (
+                  <tr key={idx} className={`hover:${
+                    isDark ? 'bg-gray-600' : 'bg-gray-50'
+                  } transition-colors`}>
+                    <td className="px-4 py-3 whitespace-nowrap text-sm font-medium">
+                      {row.ecode}
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap text-sm">
+                      {row.dcat}
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap text-sm">
+                      {row.sap}
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap text-sm">
+                      ₹{row.price}
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap text-sm">
+                      {row.moq}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        
+        {results.length > 0 && (
+          <div className="mt-4 text-sm text-gray-500">
+            Found {results.length} result{results.length !== 1 ? 's' : ''}
+          </div>
+        )}
+      </div>
     </div>
   );
-}
+};
+
+export default Companies;
