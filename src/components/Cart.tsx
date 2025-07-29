@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { ShoppingCart, Plus, Minus, Trash2, Edit, Receipt } from 'lucide-react';
+import { useState } from 'react';
+import { ShoppingCart, Plus, Minus, Trash2, Edit} from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { CartItem, Bill } from '../types';
 import { jsPDF } from 'jspdf';
@@ -93,67 +93,109 @@ export default function Cart() {
     setPdfError(null);
     
     try {
-      // Check for pop-up blockers
-      const testWindow = window.open('', '_blank');
-      if (!testWindow) {
-        setPdfError('Please allow pop-ups to download bills');
-        return;
-      }
-      testWindow.close();
-
-      // Create PDF
-      const pdf = new jsPDF();
-      
-      // Add header
-      pdf.setFontSize(18);
-      pdf.text('ProductFlow', 105, 20, { align: 'center' });
-      
-      // Bill info
-      pdf.setFontSize(12);
-      pdf.text(`Bill Date: ${new Date(bill.date).toLocaleDateString()}`, 14, 30);
-      pdf.text(`Bill ID: ${bill.id}`, 14, 40);
-      if (bill.customerName) {
-        pdf.text(`Customer: ${bill.customerName}`, 14, 50);
-      }
-      
-      // Items table
-      pdf.setFontSize(14);
-      pdf.text('Items:', 14, 60);
-      
-      let y = 70;
-      bill.items.forEach(item => {
-        pdf.setFontSize(12);
-        pdf.text(`${item.product.name} x${item.quantity}`, 14, y);
-        pdf.text(`₹${calculateItemTotal(item).toFixed(2)}`, 180, y, { align: 'right' });
-        y += 10;
-      });
-      
-      // Totals
-      y += 10;
-      pdf.text(`Subtotal: ₹${bill.subtotal.toFixed(2)}`, 14, y);
-      pdf.text(`-₹${bill.totalDiscount.toFixed(2)}`, 180, y, { align: 'right' });
-      y += 10;
-      pdf.text(`GST: ₹${bill.gst.toFixed(2)}`, 14, y);
-      y += 10;
-      pdf.setFontSize(16);
-      pdf.text(`Total: ₹${bill.total.toFixed(2)}`, 14, y);
-      
-      // Footer
-      y += 20;
-      pdf.setFontSize(10);
-      pdf.text('Thank you for your business!', 105, y, { align: 'center' });
-      
-      // Save with descriptive filename
-      const filename = `ProductFlow_Bill_${bill.id}_${new Date(bill.date).toISOString().split('T')[0]}.pdf`;
-      pdf.save(filename);
-      
-    } catch (error) {
-      console.error('PDF generation error:', error);
-      setPdfError('Failed to generate PDF. Please try again or check console for details.');
-    } finally {
-      setIsGeneratingPDF(false);
+    // Create a new PDF instance
+    const pdf = new jsPDF();
+    
+    // Set initial position
+    let yPos = 20;
+    
+    // Add header
+    pdf.setFontSize(18);
+    pdf.setTextColor(40, 40, 40);
+    pdf.text('ProductFlow', 105, yPos, { align: 'center' });
+    yPos += 10;
+    
+    pdf.setFontSize(12);
+    pdf.text('Bill Receipt', 105, yPos, { align: 'center' });
+    yPos += 15;
+    
+    // Bill info - ensure single line for ID and Date
+    pdf.setFontSize(10);
+    pdf.text(`Bill ID: ${bill.id}`, 14, yPos);
+    pdf.text(`Date: ${new Date(bill.date).toLocaleDateString()}`, 160, yPos, { align: 'right' });
+    yPos += 8;
+    
+    if (bill.customerName) {
+      pdf.text(`Customer: ${bill.customerName}`, 14, yPos);
+      yPos += 8;
     }
-  };
+    
+    // Add line separator
+    pdf.setDrawColor(200, 200, 200);
+    pdf.line(14, yPos, 196, yPos);
+    yPos += 15;
+    
+    // Add items header
+    pdf.setFontSize(12);
+    pdf.setTextColor(40, 40, 40);
+    pdf.text('Items', 14, yPos);
+    yPos += 10;
+    
+    // Format number function
+    const formatNumber = (num: number) => {
+      return '₹' + num.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    };
+    
+    // Add items
+    pdf.setFontSize(10);
+    bill.items.forEach(item => {
+      const itemTotal = item.product.price * item.quantity;
+      pdf.text(`${item.product.name} x${item.quantity}`, 14, yPos);
+      pdf.text(formatNumber(itemTotal), 180, yPos, { align: 'right' });
+      yPos += 8;
+    });
+    
+    // Add totals separator
+    yPos += 5;
+    pdf.line(14, yPos, 196, yPos);
+    yPos += 10;
+    
+    // Add totals
+    pdf.setFontSize(12);
+    
+    // Subtotal
+    pdf.text(`Subtotal: ${formatNumber(bill.subtotal)}`, 14, yPos);
+    pdf.text(formatNumber(bill.subtotal), 180, yPos, { align: 'right' });
+    yPos += 10;
+    
+    // Discount
+    if (bill.totalDiscount > 0) {
+      pdf.setTextColor(200, 0, 0);
+      pdf.text(`Discount: -${formatNumber(bill.totalDiscount)}`, 14, yPos);
+      pdf.text(`-${formatNumber(bill.totalDiscount)}`, 180, yPos, { align: 'right' });
+      yPos += 10;
+      pdf.setTextColor(40, 40, 40);
+    }
+    
+    // GST
+    pdf.text(`GST: ${formatNumber(bill.gst)}`, 14, yPos);
+    pdf.text(formatNumber(bill.gst), 180, yPos, { align: 'right' });
+    yPos += 15;
+    
+    // Total
+    pdf.setFontSize(14);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text(`Total: ${formatNumber(bill.total)}`, 14, yPos);
+    pdf.text(formatNumber(bill.total), 180, yPos, { align: 'right' });
+    yPos += 20;
+    
+    // Footer
+    pdf.setFontSize(10);
+    pdf.setTextColor(100, 100, 100);
+    pdf.text('Thank you for your business!', 105, yPos, { align: 'center' });
+    yPos += 5;
+    pdf.text(`Generated on ${new Date().toLocaleString()}`, 105, yPos, { align: 'center' });
+    
+    // Save the PDF
+    pdf.save(`bill_${bill.id}.pdf`);
+    
+    // Provide user feedback
+    alert('Bill downloaded successfully!');
+  } catch (error) {
+    console.error('Error generating PDF:', error);
+    alert('Failed to generate PDF. Please try again.');
+  }
+};
 
   const generateBill = () => {
     const totals = calculateTotals();

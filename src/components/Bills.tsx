@@ -2,7 +2,6 @@ import React from 'react';
 import { FileText, Download, Search, Calendar } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { Bill } from '../types';
-import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
 
 export default function Bills() {
@@ -25,72 +24,110 @@ export default function Bills() {
   }, [state.bills, searchTerm, dateFilter]);
 
   const generatePDF = async (bill: Bill) => {
-    const element = document.createElement('div');
-    element.style.position = 'absolute';
-    element.style.left = '-9999px';
-    element.style.width = '600px';
-    element.style.padding = '20px';
-    element.style.backgroundColor = 'white';
-    element.style.color = 'black';
+  try {
+    // Create a new PDF instance
+    const pdf = new jsPDF();
     
-    element.innerHTML = `
-      <div id="bill-content">
-        <div style="text-align: center; margin-bottom: 20px;">
-          <h2 style="font-size: 24px; font-weight: bold;">ProductFlow</h2>
-          <p style="color: #666;">Bill Receipt</p>
-          <p style="font-size: 12px; color: #999;">
-            ${new Date(bill.date).toLocaleDateString()} • ${bill.id}
-          </p>
-          ${bill.customerName ? `<p style="margin-top: 10px;">Customer: ${bill.customerName}</p>` : ''}
-        </div>
-        
-        <div style="border-top: 1px solid #eee; border-bottom: 1px solid #eee; padding: 10px 0; margin: 20px 0;">
-          ${bill.items.map((item, index) => `
-            <div key=${index} style="display: flex; justify-content: space-between; padding: 8px 0;">
-              <div>
-                <p style="font-weight: 500;">${item.product.name}</p>
-                <p style="font-size: 12px; color: #666;">
-                  ${item.quantity} × ₹${item.product.price.toFixed(2)}
-                </p>
-              </div>
-              <p>₹${(item.product.price * item.quantity).toFixed(2)}</p>
-            </div>
-          `).join('')}
-        </div>
-        
-        <div style="text-align: right; margin-top: 20px;">
-          <p>Subtotal: ₹${bill.subtotal.toFixed(2)}</p>
-          ${bill.totalDiscount > 0 ? `<p>Discount: -$${bill.totalDiscount.toFixed(2)}</p>` : ''}
-          <p>GST: ₹${bill.gst.toFixed(2)}</p>
-          <p style="font-size: 18px; font-weight: bold; margin-top: 10px;">
-            Total: ₹${bill.total.toFixed(2)}
-          </p>
-        </div>
-        
-        <div style="margin-top: 40px; text-align: center; font-size: 12px; color: #999;">
-          <p>Thank you for your business!</p>
-          <p style="margin-top: 5px;">Generated on ${new Date().toLocaleString()}</p>
-        </div>
-      </div>
-    `;
+    // Set initial position
+    let yPos = 20;
     
-    document.body.appendChild(element);
+    // Add header
+    pdf.setFontSize(18);
+    pdf.setTextColor(40, 40, 40);
+    pdf.text('ProductFlow', 105, yPos, { align: 'center' });
+    yPos += 10;
     
-    try {
-      const canvas = await html2canvas(element.querySelector('#bill-content') as HTMLElement);
-      const pdf = new jsPDF('p', 'mm', 'a4');
-      const imgData = canvas.toDataURL('image/png');
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-      
-      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-      pdf.save(`bill_${bill.id}.pdf`);
-    } catch (error) {
-      console.error('Error generating PDF:', error);
-    } finally {
-      document.body.removeChild(element);
+    pdf.setFontSize(12);
+    pdf.text('Bill Receipt', 105, yPos, { align: 'center' });
+    yPos += 15;
+    
+    // Bill info - ensure single line for ID and Date
+    pdf.setFontSize(10);
+    pdf.text(`Bill ID: ${bill.id}`, 14, yPos);
+    pdf.text(`Date: ${new Date(bill.date).toLocaleDateString()}`, 160, yPos, { align: 'right' });
+    yPos += 8;
+    
+    if (bill.customerName) {
+      pdf.text(`Customer: ${bill.customerName}`, 14, yPos);
+      yPos += 8;
     }
-  };
+    
+    // Add line separator
+    pdf.setDrawColor(200, 200, 200);
+    pdf.line(14, yPos, 196, yPos);
+    yPos += 15;
+    
+    // Add items header
+    pdf.setFontSize(12);
+    pdf.setTextColor(40, 40, 40);
+    pdf.text('Items', 14, yPos);
+    yPos += 10;
+    
+    // Format number function
+    const formatNumber = (num: number) => {
+      return '₹' + num.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    };
+    
+    // Add items
+    pdf.setFontSize(10);
+    bill.items.forEach(item => {
+      const itemTotal = item.product.price * item.quantity;
+      pdf.text(`${item.product.name} x${item.quantity}`, 14, yPos);
+      pdf.text(formatNumber(itemTotal), 180, yPos, { align: 'right' });
+      yPos += 8;
+    });
+    
+    // Add totals separator
+    yPos += 5;
+    pdf.line(14, yPos, 196, yPos);
+    yPos += 10;
+    
+    // Add totals
+    pdf.setFontSize(12);
+    
+    // Subtotal
+    pdf.text(`Subtotal: ${formatNumber(bill.subtotal)}`, 14, yPos);
+    pdf.text(formatNumber(bill.subtotal), 180, yPos, { align: 'right' });
+    yPos += 10;
+    
+    // Discount
+    if (bill.totalDiscount > 0) {
+      pdf.setTextColor(200, 0, 0);
+      pdf.text(`Discount: -${formatNumber(bill.totalDiscount)}`, 14, yPos);
+      pdf.text(`-${formatNumber(bill.totalDiscount)}`, 180, yPos, { align: 'right' });
+      yPos += 10;
+      pdf.setTextColor(40, 40, 40);
+    }
+    
+    // GST
+    pdf.text(`GST: ${formatNumber(bill.gst)}`, 14, yPos);
+    pdf.text(formatNumber(bill.gst), 180, yPos, { align: 'right' });
+    yPos += 15;
+    
+    // Total
+    pdf.setFontSize(14);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text(`Total: ${formatNumber(bill.total)}`, 14, yPos);
+    pdf.text(formatNumber(bill.total), 180, yPos, { align: 'right' });
+    yPos += 20;
+    
+    // Footer
+    pdf.setFontSize(10);
+    pdf.setTextColor(100, 100, 100);
+    pdf.text('Thank you for your business!', 105, yPos, { align: 'center' });
+    yPos += 5;
+    pdf.text(`Generated on ${new Date().toLocaleString()}`, 105, yPos, { align: 'center' });
+    
+    // Save the PDF
+    pdf.save(`bill_${bill.id}.pdf`);
+    
+    // Provide user feedback
+    alert('Bill downloaded successfully!');
+  } catch (error) {
+    console.error('Error generating PDF:', error);
+    alert('Failed to generate PDF. Please try again.');
+  }
+};
 
   return (
     <div className="space-y-6">
