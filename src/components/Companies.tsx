@@ -26,8 +26,11 @@ const CartBillSection: React.FC<{ cart: SearchResult[], isDark: boolean }> = ({ 
 
   for (const item of cart) {
     const qty = Number(item.quantity || item.moq || 1);
-    const price = Number(item.price) || 0;
+    const price = Number(item.price);
     const discount = Number(item.discount) || 0;
+
+    if (isNaN(price) || isNaN(qty)) continue;
+
     const itemTotal = qty * price;
     const itemDiscount = itemTotal * (discount / 100);
 
@@ -144,12 +147,17 @@ const Companies: React.FC = () => {
     for (const line of lines) {
       const match = line.match(pattern);
       if (match) {
+        const [_, ecode, dcat, sap, priceRaw, moqRaw] = match;
+
+        const price = parseFloat(priceRaw.replace(/[^\d.]/g, "")) || 0;
+        const moq = parseInt(moqRaw.replace(/[^\d]/g, "")) || 1;
+
         matches.push({
-          ecode: match[1],
-          dcat: match[2],
-          sap: match[3],
-          price: match[4],
-          moq: match[5],
+          ecode,
+          dcat,
+          sap,
+          price: price.toFixed(2),
+          moq: moq.toString()
         });
       }
     }
@@ -303,7 +311,7 @@ const Companies: React.FC = () => {
                   <tr key={idx}>
                     <td className="px-4 py-2">{item.ecode}</td>
                     <td className="px-4 py-2">{item.dcat}</td>
-                    <td className="px-4 py-2">{item.price}</td>
+                    <td className="px-4 py-2">{Number(item.price).toFixed(2)}</td>
                     <td className="px-4 py-2">{item.moq}</td>
                     <td className="px-4 py-2">
                       <input
@@ -341,8 +349,11 @@ const Companies: React.FC = () => {
                     <td className="px-4 py-2 font-semibold">
                       {(() => {
                         const qty = Number(item.quantity || item.moq || 1);
-                        const price = Number(item.price) || 0;
+                        const price = Number(item.price);
                         const discount = Number(item.discount) || 0;
+
+                        if (isNaN(price) || isNaN(qty)) return "₹0.00";
+
                         const total = qty * price * (1 - discount / 100);
                         return `₹${total.toFixed(2)}`;
                       })()}
