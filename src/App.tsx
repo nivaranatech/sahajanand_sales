@@ -1,4 +1,3 @@
-import React from 'react';
 import { AppProvider, useApp } from './context/AppContext';
 import Header from './components/Header';
 import Dashboard from './components/Dashboard';
@@ -22,9 +21,9 @@ function AppContent() {
       case 'cart':
         return <Cart />;
       case 'companies':
-        return <Companies/>;
+        return <Companies />;
       case 'bills':
-        return <Bills/>;
+        return <Bills />;
       default:
         return <Dashboard />;
     }

@@ -34,6 +34,20 @@ export default function ProductCard({ product, onAddToCart, onViewDetails }: Pro
             }`}>
               {product.name}
             </h3>
+            
+            {/* Category/Taper moved here - just below the product name */}
+            {product.category && (
+              <div className="mb-2">
+                <span className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${
+                  state.theme === 'dark'
+                    ? 'bg-blue-900 text-blue-200'
+                    : 'bg-blue-100 text-blue-800'
+                }`}>
+                  {product.category}
+                </span>
+              </div>
+            )}
+            
             <p className={`text-sm ${
               state.theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
             }`}>
@@ -87,15 +101,7 @@ export default function ProductCard({ product, onAddToCart, onViewDetails }: Pro
               </span>
             )}
           </div>
-          {product.category && (
-            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-              state.theme === 'dark'
-                ? 'bg-gray-700 text-gray-300'
-                : 'bg-gray-100 text-gray-700'
-            }`}>
-              {product.category}
-            </span>
-          )}
+          {/* Removed the category from here since it's now moved above */}
         </div>
 
         <div className="flex space-x-2">
@@ -119,7 +125,7 @@ export default function ProductCard({ product, onAddToCart, onViewDetails }: Pro
                 : 'bg-blue-600 hover:bg-blue-700 text-white'
             }`}
           >
-            <Plus className="w-4 h-4" />
+            <Plus className="w-4 h-4" /> 
             <span>Add</span>
           </button>
         </div>

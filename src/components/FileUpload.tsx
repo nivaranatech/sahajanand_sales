@@ -1,7 +1,7 @@
 import React, { useCallback, useState } from 'react';
-import { Upload, FileSpreadsheet, AlertCircle, CheckCircle, XCircle, Loader2 } from 'lucide-react';
+import {  FileSpreadsheet, AlertCircle, CheckCircle, XCircle, Loader2 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import { parseCSV, parseExcel, parsePDF } from '../utils/fileParser';
+import { parseExcel, } from '../utils/fileParser';
 
 export default function FileUpload() {
   const { state, dispatch } = useApp();
